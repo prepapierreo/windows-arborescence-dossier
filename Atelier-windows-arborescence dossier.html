@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercice d'Arborescence de Fichiers</title>
+    <style>
+        :root {
+            --border-color: #ccc;
+            --background-color: #f9f9f9;
+            --selected-bg: #dbeaff;
+            --selected-border: #99c0ff;
+            --drop-target-bg: #e0ffe0;
+            --connector-color: #aaa;
+            --text-color: #333;
+            --button-bg: #007bff;
+            --button-hover-bg: #0056b3;
+            --button-disabled-bg: #c0c0c0;
+            --danger-bg: #dc3545;
+            --danger-hover-bg: #c82333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 1rem;
+            background-color: #f0f2f5;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 1rem; /* Ajout d'espace sous le titre principal */
+            color: #333;
+        }
+
+        .main-container {
+            display: flex;
+            flex-grow: 1;
+            gap: 1.5rem;
+            min-height: 0; /* Important pour le défilement des enfants flex */
+        }
+
+        .panel {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem; /* Réduit de 1rem pour gagner de la place */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .controls-panel {
+            flex: 0 0 300px; /* Ne grandit pas, ne rétrécit pas, base 300px */
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem; /* Réduit de 1rem */
+        }
+
+        .tree-panel {
+            flex-grow: 1;
+            overflow: auto; /* Permet le défilement pour les grandes arborescences */
+        }
+
+        .controls-group {
+            border-top: 1px solid var(--border-color);
+            padding-top: 0.5rem; /* Réduit de 1rem */
+        }
+
+        .controls-panel {
+            flex: 0 0 300px; /* Ne grandit pas, ne rétrécit pas, base 300px */
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-panel {
+            flex-grow: 1;
+            overflow: auto; /* Permet le défilement pour les grandes arborescences */
+        }
+
+        .controls-group {
+            border-top: 1px solid var(--border-color);
+            padding-top: 1rem;
+        }
+        .controls-group:first-child {
+            border-top: none;
+            padding-top: 0;
+        }
+
+        .controls-group h3 {
+            margin-top: 0;
+            font-size: 1.1em;
+            color: #555;
+        }
+        
+        button {
+            display: block;
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 5px;
+            background-color: var(--button-bg);
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--button-hover-bg);
+        }
+
+        button:disabled {
+            background-color: var(--button-disabled-bg);
+            cursor: not-allowed;
+        }
+
+        #btn-delete { background-color: var(--danger-bg); }
+        #btn-delete:hover { background-color: var(--danger-hover-bg); }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        
+        input[type="text"]:disabled {
+            background-color: var(--background-color);
+        }
+
+        /* Styles de l'arborescence (Tree View) */
+        .tree {
+            padding-left: 0;
+        }
+        .tree ul {
+            padding-left: 20px;
+            margin-left: 10px;
+            list-style-type: none;
+            position: relative;
+        }
+
+        .tree ul::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 1px;
+            background: var(--connector-color);
+        }
+        
+        .tree li {
+            margin: 0;
+            padding: 4px 0;
+            position: relative;
+        }
+
+        .tree li::before {
+            content: '';
+            position: absolute;
+            top: 15px; /* Ajuster pour aligner avec l'icône du dossier */
+            left: -10px;
+            width: 10px;
+            height: 1px;
+            background: var(--connector-color);
+        }
+
+        .folder {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .folder-icon {
+            margin-right: 8px;
+        }
+
+        .folder.selected {
+            background-color: var(--selected-bg);
+            border-color: var(--selected-border);
+        }
+
+        .folder.drag-over {
+            background-color: var(--drop-target-bg);
+            border-color: #6cbf6c;
+        }
+        
+        .ghost {
+            opacity: 0.5;
+            background: #c0c0c0;
+        }
+
+        /* Mode Défi */
+        .challenge-panel {
+            display: none; /* Caché par défaut */
+            flex: 0 0 300px;
+            background-color: #fffde7;
+        }
+        .challenge-panel.active {
+            display: block;
+        }
+        #challenge-target .folder {
+            cursor: default;
+        }
+        #challenge-feedback {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 5px;
+            text-align: left; /* Aligné à gauche pour la liste */
+            font-weight: normal; /* Moins gras pour la lisibilité */
+            font-size: 0.9rem; /* Police plus petite */
+            display: none;
+            max-height: 150px; /* Hauteur max contrainte */
+            overflow-y: auto; /* Scroll si le message est trop long */
+            border: 1px solid transparent;
+        }
+        #challenge-feedback.correct {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+            text-align: center;
+            font-weight: bold;
+        }
+        #challenge-feedback.incorrect {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+
+        /* Styles pour le toggle (développer/réduire) */
+        .tree-toggle {
+            display: inline-block;
+            width: 20px;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+            color: #666;
+            font-size: 0.8rem;
+            margin-right: 2px;
+        }
+        .tree-toggle:hover {
+            color: #000;
+        }
+        .tree-toggle.hidden {
+            visibility: hidden;
+        }
+
+        /* Styles pour la Modale Personnalisée */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .modal-buttons button {
+            width: 100%;
+        }
+        #modal-btn-cancel {
+            background-color: #6c757d;
+        }
+        #modal-btn-cancel:hover {
+            background-color: #5a6268;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                height: auto;
+            }
+            .main-container {
+                flex-direction: column;
+            }
+            .controls-panel, .challenge-panel {
+                flex-basis: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Atelier Arborescence de dossiers</h1>
+
+    <div class="main-container">
+        <div class="panel controls-panel">
+            <h2>Contrôles</h2>
+            
+            <div class="controls-group">
+                <h3>Actions</h3>
+                <button id="btn-add">Ajouter un sous-dossier</button>
+                <button id="btn-delete" style="margin-top: 0.5rem;">Supprimer le dossier</button>
+            </div>
+
+            <div class="controls-group">
+                <h3>Renommer</h3>
+                <label for="rename-input">Nom du dossier sélectionné :</label>
+                <input type="text" id="rename-input" placeholder="Sélectionnez un dossier">
+            </div>
+
+            <div class="controls-group">
+                <h3>Gestion</h3>
+                <button id="btn-reset">Réinitialiser l'arborescence</button>
+                <button id="btn-challenge" style="margin-top: 0.5rem;">Lancer le Mode Défi</button>
+            </div>
+            
+            <div id="challenge-controls" class="controls-group" style="display: none;">
+                <h3>Défi</h3>
+                <button id="btn-check-solution">Vérifier la solution</button>
+                <div id="challenge-feedback"></div>
+            </div>
+
+        </div>
+
+        <div id="challenge-panel" class="panel challenge-panel">
+            <h2>Défi : Reproduisez ceci</h2>
+            <div id="challenge-target" class="tree"></div>
+        </div>
+
+        <div class="panel tree-panel">
+            <h2>Votre Structure de Fichiers</h2>
+            <p>Cliquez sur ▶ pour développer/réduire. Glisser-déposer pour déplacer.</p>
+            <div id="tree-container" class="tree"></div>
+        </div>
+    </div>
+
+    <!-- Modale de Confirmation -->
+    <div id="confirmation-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="modal-title">Confirmation</h3>
+            <p id="modal-message">Êtes-vous sûr ?</p>
+            <div class="modal-buttons">
+                <button id="modal-btn-confirm">Confirmer</button>
+                <button id="modal-btn-cancel">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // --- GESTION DE L'ÉTAT ---
+    let fileSystem;
+    let selectedFolderId = null;
+    let nextId = 0;
+    let challengeMode = false;
+
+    const getInitialState = () => {
+        nextId = 0;
+        return {
+            id: generateId(),
+            name: 'Mes Fichiers',
+            expanded: true,
+            children: []
+        };
+    };
+
+    const challengeTargetStructure = {
+        name: 'Mes Fichiers',
+        children: [
+            {
+                name: 'Photos',
+                children: [
+                    {
+                        name: 'Vacances',
+                        children: [
+                            { name: 'Printemps 2022', children: [] },
+                            { name: 'Hiver 2022', children: [] },
+                            { name: 'Printemps 2023', children: [] },
+                        ]
+                    },
+                    {
+                        name: 'Anniversaires',
+                        children: [
+                            { name: 'Ali', children: [] },
+                            { name: 'Marie', children: [] },
+                        ]
+                    }
+                ]
+            },
+            {
+                name: 'Documents',
+                children: [
+                    { name: 'Travail', children: [] },
+                    { name: 'Personnel', children: [] },
+                ]
+            }
+        ]
+    };
+
+    // --- ÉLÉMENTS DU DOM ---
+    const treeContainer = document.getElementById('tree-container');
+    const btnAdd = document.getElementById('btn-add');
+    const btnDelete = document.getElementById('btn-delete');
+    const btnReset = document.getElementById('btn-reset');
+    const renameInput = document.getElementById('rename-input');
+    
+    // Éléments du Mode Défi
+    const btnChallenge = document.getElementById('btn-challenge');
+    const btnCheckSolution = document.getElementById('btn-check-solution');
+    const challengePanel = document.getElementById('challenge-panel');
+    const challengeTargetContainer = document.getElementById('challenge-target');
+    const challengeControls = document.getElementById('challenge-controls');
+    const challengeFeedback = document.getElementById('challenge-feedback');
+
+    // Éléments de la Modale
+    const modal = document.getElementById('confirmation-modal');
+    const modalMessage = document.getElementById('modal-message');
+    const btnModalConfirm = document.getElementById('modal-btn-confirm');
+    const btnModalCancel = document.getElementById('modal-btn-cancel');
+    let onConfirmAction = null;
+
+    const showConfirm = (message, action) => {
+        modalMessage.textContent = message;
+        onConfirmAction = action;
+        modal.classList.add('active');
+    };
+
+    const hideConfirm = () => {
+        modal.classList.remove('active');
+        onConfirmAction = null;
+    };
+
+    btnModalConfirm.addEventListener('click', () => {
+        if (onConfirmAction) onConfirmAction();
+        hideConfirm();
+    });
+
+    btnModalCancel.addEventListener('click', hideConfirm);
+
+    // --- FONCTIONS UTILITAIRES ---
+    const generateId = () => `folder-${nextId++}`;
+
+    const findNode = (id, node = fileSystem) => {
+        if (node.id === id) return node;
+        for (const child of node.children) {
+            const found = findNode(id, child);
+            if (found) return found;
+        }
+        return null;
+    };
+
+    const findParentNode = (childId, node = fileSystem) => {
+        for (const child of node.children) {
+            if (child.id === childId) return node;
+            const found = findParentNode(childId, child);
+            if (found) return found;
+        }
+        return null;
+    };
+    
+    const isDescendant = (potentialChildId, potentialParentId) => {
+        const parentNode = findNode(potentialParentId);
+        if (!parentNode) return false;
+
+        const check = (node) => {
+            if (node.id === potentialChildId) return true;
+            for (const child of node.children) {
+                if (check(child)) return true;
+            }
+            return false;
+        };
+        return check(parentNode);
+    };
+
+    // --- RENDU (RENDERING) ---
+    const render = () => {
+        treeContainer.innerHTML = '';
+        const treeRoot = renderNode(fileSystem, true);
+        treeContainer.appendChild(treeRoot);
+        updateControlsState();
+    };
+
+    const renderNode = (node, isInteractive = true) => {
+        const li = document.createElement('li');
+        
+        // Bouton Toggle (Développer/Réduire)
+        const hasChildren = node.children && node.children.length > 0;
+        const toggleSpan = document.createElement('span');
+        toggleSpan.className = 'tree-toggle';
+        // On cache le toggle s'il n'y a pas d'enfants, mais on garde l'espace pour l'alignement
+        if (!hasChildren) toggleSpan.classList.add('hidden');
+        toggleSpan.innerHTML = node.expanded ? '▼' : '▶';
+        toggleSpan.onclick = (e) => {
+            e.stopPropagation(); // Empêche la sélection du dossier
+            node.expanded = !node.expanded;
+            render();
+        };
+
+        const folderDiv = document.createElement('div');
+        folderDiv.className = 'folder';
+        folderDiv.dataset.id = node.id;
+        if (node.id === selectedFolderId) {
+            folderDiv.classList.add('selected');
+        }
+
+        if (isInteractive) {
+            folderDiv.setAttribute('draggable', node.id !== fileSystem.id); // La racine n'est pas déplaçable
+        }
+
+        folderDiv.innerHTML = `<span class="folder-icon">📁</span><span class="folder-name">${node.name}</span>`;
+        
+        // Conteneur pour aligner le toggle et le dossier
+        const lineContainer = document.createElement('div');
+        lineContainer.style.display = 'flex';
+        lineContainer.style.alignItems = 'center';
+        
+        if (isInteractive) {
+            lineContainer.appendChild(toggleSpan);
+        }
+        lineContainer.appendChild(folderDiv);
+        
+        li.appendChild(lineContainer);
+
+        // N'afficher les enfants que si 'expanded' est vrai
+        if (hasChildren && (node.expanded || !isInteractive)) {
+            // Note: Dans le mode défi (non-interactif), on affiche toujours tout ou on pourrait aussi implémenter le toggle.
+            // Ici, pour la cible du défi, on affiche tout par défaut.
+            const ul = document.createElement('ul');
+            node.children.forEach(child => {
+                // Pour la cible du défi, on considère que c'est toujours ouvert visuellement
+                const childNode = isInteractive ? child : { ...child, expanded: true };
+                ul.appendChild(renderNode(childNode, isInteractive));
+            });
+            li.appendChild(ul);
+        }
+
+        return li;
+    };
+
+    const renderChallengeTarget = () => {
+        const renderTargetNode = (node) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<div class="folder"><span class="folder-icon">📁</span><span>${node.name}</span></div>`;
+            if (node.children && node.children.length > 0) {
+                const ul = document.createElement('ul');
+                node.children.forEach(child => ul.appendChild(renderTargetNode(child)));
+                li.appendChild(ul);
+            }
+            return li;
+        };
+        challengeTargetContainer.innerHTML = '';
+        challengeTargetContainer.appendChild(renderTargetNode(challengeTargetStructure));
+    };
+
+    // --- LOGIQUE D'INTERFACE/CONTRÔLE ---
+    const updateControlsState = () => {
+        const isFolderSelected = !!selectedFolderId;
+        const isRootSelected = selectedFolderId === fileSystem.id;
+
+        btnAdd.disabled = !isFolderSelected;
+        btnDelete.disabled = !isFolderSelected || isRootSelected;
+        renameInput.disabled = !isFolderSelected;
+
+        if (isFolderSelected) {
+            const selectedNode = findNode(selectedFolderId);
+            renameInput.value = selectedNode.name;
+        } else {
+            renameInput.value = '';
+            renameInput.placeholder = 'Sélectionnez un dossier';
+        }
+    };
+
+    const selectFolder = (id) => {
+        selectedFolderId = id;
+        render();
+    };
+
+    // --- GESTIONNAIRES D'ÉVÉNEMENTS ---
+    const handleAddSubfolder = () => {
+        if (!selectedFolderId) return;
+        const parentNode = findNode(selectedFolderId);
+        if (parentNode) {
+            // Ouvrir le parent pour que l'utilisateur voie ce qu'il vient de créer
+            parentNode.expanded = true;
+            
+            const newFolder = {
+                id: generateId(),
+                name: 'Nouveau Dossier',
+                expanded: true,
+                children: []
+            };
+            parentNode.children.push(newFolder);
+            selectFolder(newFolder.id); // Déclenche aussi le rendu
+            setTimeout(() => renameInput.focus(), 0);
+        }
+    };
+
+    const handleDelete = () => {
+        if (!selectedFolderId || selectedFolderId === fileSystem.id) return;
+        const nodeToDelete = findNode(selectedFolderId);
+        
+        showConfirm(`Êtes-vous sûr de vouloir supprimer "${nodeToDelete.name}" et tout son contenu ?`, () => {
+            const parentNode = findParentNode(selectedFolderId);
+            if (parentNode) {
+                parentNode.children = parentNode.children.filter(child => child.id !== selectedFolderId);
+                selectFolder(null); // Déclenche aussi le rendu
+            }
+        });
+    };
+
+    const handleRename = () => {
+        if (!selectedFolderId) return;
+        const nodeToRename = findNode(selectedFolderId);
+        if (nodeToRename) {
+            nodeToRename.name = renameInput.value.trim() || 'Sans titre';
+            render();
+        }
+    };
+    
+    const handleReset = () => {
+        showConfirm('Êtes-vous sûr de vouloir réinitialiser toute la structure de fichiers ?', () => {
+            fileSystem = getInitialState();
+            selectFolder(null);
+            if (challengeMode) {
+                challengeMode = false;
+                btnChallenge.textContent = 'Lancer le Mode Défi';
+                challengePanel.classList.remove('active');
+                challengeControls.style.display = 'none';
+                challengeFeedback.style.display = 'none';
+            }
+            render();
+        });
+    };
+
+    // --- GESTIONNAIRES GLISSER-DÉPOSER (DRAG & DROP) ---
+    let draggedElementId = null;
+
+    treeContainer.addEventListener('dragstart', (e) => {
+        if (e.target.classList.contains('folder')) {
+            draggedElementId = e.target.dataset.id;
+            e.dataTransfer.setData('text/plain', draggedElementId);
+            setTimeout(() => e.target.classList.add('ghost'), 0);
+        }
+    });
+
+    treeContainer.addEventListener('dragend', (e) => {
+        if (e.target.classList.contains('folder')) {
+            e.target.classList.remove('ghost');
+        }
+        draggedElementId = null;
+    });
+
+    treeContainer.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const targetFolder = e.target.closest('.folder');
+        if (targetFolder) {
+            const targetId = targetFolder.dataset.id;
+            // Empêcher de déposer sur soi-même ou un descendant
+            if (targetId !== draggedElementId && !isDescendant(targetId, draggedElementId)) {
+                targetFolder.classList.add('drag-over');
+            }
+        }
+    });
+
+    treeContainer.addEventListener('dragleave', (e) => {
+        const targetFolder = e.target.closest('.folder');
+        if (targetFolder) {
+            targetFolder.classList.remove('drag-over');
+        }
+    });
+
+    treeContainer.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const targetFolder = e.target.closest('.folder');
+        if (targetFolder) {
+            targetFolder.classList.remove('drag-over');
+            const droppedOnId = targetFolder.dataset.id;
+            const draggedId = e.dataTransfer.getData('text/plain');
+
+            // Validation
+            if (!draggedId || draggedId === droppedOnId || draggedId === fileSystem.id || isDescendant(droppedOnId, draggedId)) {
+                return;
+            }
+
+            // Déplacer le nœud dans la structure de données
+            const parentOfDragged = findParentNode(draggedId);
+            const nodeToMove = findNode(draggedId);
+            const newParent = findNode(droppedOnId);
+
+            if (parentOfDragged && nodeToMove && newParent) {
+                // Retirer de l'ancien parent
+                parentOfDragged.children = parentOfDragged.children.filter(child => child.id !== draggedId);
+                // Ajouter au nouveau parent
+                newParent.children.push(nodeToMove);
+                render();
+            }
+        }
+    });
+    
+    // --- MODE DÉFI ---
+    const toggleChallengeMode = () => {
+        challengeMode = !challengeMode;
+        if (challengeMode) {
+            btnChallenge.textContent = 'Quitter le Mode Défi';
+            challengePanel.classList.add('active');
+            challengeControls.style.display = 'block';
+            fileSystem = getInitialState();
+            selectFolder(null);
+            renderChallengeTarget();
+        } else {
+            btnChallenge.textContent = 'Lancer le Mode Défi';
+            challengePanel.classList.remove('active');
+            challengeControls.style.display = 'none';
+            challengeFeedback.style.display = 'none';
+        }
+    };
+    
+    const checkSolution = () => {
+        const errors = [];
+
+        const compareNodes = (userNode, targetNode, path) => {
+            const currentPath = path ? `${path} > ${targetNode.name}` : targetNode.name;
+
+            if (userNode.name !== targetNode.name) {
+                errors.push(`Nom incorrect : "${userNode.name}" devrait être "${targetNode.name}" (dans ${path || 'Racine'})`);
+                // Si le nom ne correspond pas, difficile de comparer les enfants de manière fiable
+                return; 
+            }
+
+            // Comparaison des enfants
+            const userChildrenSorted = [...(userNode.children || [])].sort((a, b) => a.name.localeCompare(b.name));
+            const targetChildrenSorted = [...(targetNode.children || [])].sort((a, b) => a.name.localeCompare(b.name));
+
+            // Vérification des dossiers manquants ou en trop
+            const userChildNames = userChildrenSorted.map(c => c.name);
+            const targetChildNames = targetChildrenSorted.map(c => c.name);
+
+            targetChildNames.forEach(name => {
+                if (!userChildNames.includes(name)) {
+                    errors.push(`Dossier manquant : "${name}" dans "${currentPath}"`);
+                }
+            });
+
+            userChildNames.forEach(name => {
+                if (!targetChildNames.includes(name)) {
+                    errors.push(`Dossier en trop : "${name}" dans "${currentPath}"`);
+                }
+            });
+
+            // Récursion sur les enfants correspondants
+            targetChildrenSorted.forEach(targetChild => {
+                const matchingUserChild = userChildrenSorted.find(u => u.name === targetChild.name);
+                if (matchingUserChild) {
+                    compareNodes(matchingUserChild, targetChild, currentPath);
+                }
+            });
+        };
+        
+        compareNodes(fileSystem, challengeTargetStructure, '');
+        
+        challengeFeedback.style.display = 'block';
+        if (errors.length === 0) {
+            challengeFeedback.textContent = 'Correct ! Bien joué !';
+            challengeFeedback.className = 'correct';
+        } else {
+            challengeFeedback.className = 'incorrect';
+            if (errors.length <= 3) {
+                // Affiche les détails s'il y a peu d'erreurs
+                challengeFeedback.innerHTML = 'Erreurs trouvées :<br>' + errors.join('<br>');
+            } else {
+                // Message générique s'il y a trop d'erreurs
+                challengeFeedback.textContent = 'Plusieurs erreurs trouvées. Vérifiez bien la structure demandée !';
+            }
+        }
+    };
+
+    // --- INITIALISATION DES ÉCOUTEURS D'ÉVÉNEMENTS ---
+    treeContainer.addEventListener('click', (e) => {
+        const folder = e.target.closest('.folder');
+        if (folder) {
+            selectFolder(folder.dataset.id);
+        }
+    });
+
+    btnAdd.addEventListener('click', handleAddSubfolder);
+    btnDelete.addEventListener('click', handleDelete);
+    btnReset.addEventListener('click', handleReset);
+    renameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            handleRename();
+            renameInput.blur();
+        }
+    });
+    renameInput.addEventListener('blur', handleRename);
+    
+    btnChallenge.addEventListener('click', toggleChallengeMode);
+    btnCheckSolution.addEventListener('click', checkSolution);
+
+    // --- RENDU INITIAL ---
+    fileSystem = getInitialState();
+    render();
+});
+</script>
+
+</body>
+</html>
